@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EcSD26 · Ambiguity & Learning/Experience</title>
+<style>
+  :root{
+    --paper:#F7F6F2; --card:#FFFFFF; --ink:#16202E; --ink-soft:#5A6472;
+    --line:#E3E1D9;
+    --correct:#1E7A4C; --correct-bg:#E8F4EC;
+    --wrong:#B03A2E; --wrong-bg:#F9ECEA;
+    --t-ells:#2B5FB8; --t-nat:#B07A1E; --t-mp:#6B4FA8; --t-exp:#1E7A4C; --t-fin:#B03A5E;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'IBM Plex Sans','Segoe UI',system-ui,sans-serif;
+    background:var(--paper); color:var(--ink);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:16px 14px 40px;
+  }
+  header{width:100%; max-width:680px; margin-bottom:14px;}
+  .kicker{font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-soft); font-weight:600;}
+  h1{font-family:'Space Grotesk','IBM Plex Sans',sans-serif; font-size:20px; font-weight:700; margin-top:2px;}
+  .progressbar{height:5px; background:var(--line); border-radius:3px; margin-top:12px; overflow:hidden;}
+  .progressbar div{height:100%; width:0%; background:var(--ink); border-radius:3px; transition:width .35s ease;}
+  .meta{display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); margin-top:6px;}
+
+  .card{
+    width:100%; max-width:680px; background:var(--card);
+    border:1px solid var(--line); border-radius:14px;
+    padding:22px 20px; box-shadow:0 1px 3px rgba(22,32,46,.06);
+  }
+  .badge{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:0.08em;
+    text-transform:uppercase; color:#fff; padding:4px 10px; border-radius:999px; margin-bottom:14px;
+  }
+  .stem{font-size:15px; line-height:1.55; white-space:pre-line;}
+  .statements{margin:14px 0; display:flex; flex-direction:column; gap:10px;}
+  .statement{
+    font-size:14.5px; line-height:1.5; padding:10px 12px;
+    background:var(--paper); border-left:3px solid var(--line); border-radius:0 8px 8px 0;
+  }
+  .statement b{font-family:'Space Grotesk',sans-serif;}
+
+  .options{display:flex; flex-direction:column; gap:9px; margin-top:16px;}
+  .opt{
+    display:flex; gap:10px; align-items:flex-start; text-align:left;
+    width:100%; padding:12px 14px; font-size:14.5px; line-height:1.45;
+    background:var(--card); border:1.5px solid var(--line); border-radius:10px;
+    cursor:pointer; transition:border-color .15s, background .15s;
+    font-family:inherit; color:var(--ink);
+  }
+  .opt:hover{border-color:var(--ink-soft);}
+  .opt .key{
+    flex:0 0 auto; width:24px; height:24px; border-radius:6px;
+    background:var(--paper); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:12.5px; font-family:'Space Grotesk',sans-serif;
+  }
+  .opt.correct{border-color:var(--correct); background:var(--correct-bg);}
+  .opt.correct .key{background:var(--correct); border-color:var(--correct); color:#fff;}
+  .opt.wrong{border-color:var(--wrong); background:var(--wrong-bg);}
+  .opt.wrong .key{background:var(--wrong); border-color:var(--wrong); color:#fff;}
+  .opt:disabled{cursor:default;}
+  .opt.dim{opacity:.55;}
+
+  .explain{
+    margin-top:16px; padding:14px 15px; border-radius:10px;
+    background:var(--paper); border:1px solid var(--line);
+    font-size:14px; line-height:1.6; display:none; white-space:pre-line;
+  }
+  .explain .verdict{font-family:'Space Grotesk',sans-serif; font-weight:700; margin-bottom:6px; display:block;}
+  .explain.show{display:block; animation:fadein .25s ease;}
+  @keyframes fadein{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  .actions{display:flex; gap:10px; margin-top:18px;}
+  .btn{
+    flex:1; padding:12px; font-size:14.5px; font-weight:600; font-family:'Space Grotesk',sans-serif;
+    border-radius:10px; border:1.5px solid var(--ink); cursor:pointer; transition:opacity .15s;
+  }
+  .btn.primary{background:var(--ink); color:#fff;}
+  .btn.ghost{background:transparent; color:var(--ink);}
+  .btn:disabled{opacity:.35; cursor:default;}
+
+  .result{text-align:center; padding:36px 20px;}
+  .result .score{font-family:'Space Grotesk',sans-serif; font-size:56px; font-weight:700;}
+  .result p{color:var(--ink-soft); margin-top:6px; font-size:14.5px;}
+  .topicstats{margin:22px auto 0; max-width:420px; text-align:left; display:flex; flex-direction:column; gap:8px;}
+  .topicstats .row{display:flex; justify-content:space-between; font-size:13.5px; padding:8px 12px; background:var(--paper); border-radius:8px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Economic Survey Design · Klausurtraining</div>
+  <h1>VL: Ambiguity Attitudes & Learning/Experience</h1>
+  <div class="progressbar"><div id="prog"></div></div>
+  <div class="meta"><span id="counter">Frage 1</span><span id="score">0 richtig</span></div>
+</header>
+
+<div class="card" id="card"></div>
+
+<script>
+const TOPICS = {
+  ells:{label:"Ellsberg Urns", color:"var(--t-ells)"},
+  nat: {label:"Natural Sources", color:"var(--t-nat)"},
+  mp:  {label:"Matching Probabilities", color:"var(--t-mp)"},
+  exp: {label:"Description vs. Experience", color:"var(--t-exp)"},
+  fin: {label:"Distribution Builder / Finance", color:"var(--t-fin)"},
+};
+
+const QUESTIONS = [
+{
+ topic:"ells",
+ stem:"Consider the two-urn Ellsberg setup. Urn K contains 50 red and 50 black balls (known). Urn A contains 100 red and black balls in unknown proportion (ambiguous). A participant makes two choices: bet on RED (K or A), and bet on BLACK (K or A).",
+ statements:[
+  "<b>i)</b> A participant who bets on K in BOTH choices is classified as ambiguity averse.",
+  "<b>ii)</b> A skewed belief such as \"urn A contains a lot of red\" could explain betting on K for both the red bet and the black bet."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — Both-K = ambiguity averse; both-A = ambiguity seeking; mixed = not categorized (Folie Method 1).\nii) FALSE — Genau der Clou der 2-Wahl-Methode: \"viel Rot in A\" würde bedeuten, bei der Rot-Wette A zu wählen UND bei der Schwarz-Wette K (weil dann wenig Schwarz in A). Ein skewed belief kann also NICHT beide K-Wetten erklären — deshalb identifiziert die Doppelwahl echte Ambiguitätsaversion."
+},
+{
+ topic:"ells",
+ stem:"Consider Method 2 for Ellsberg urns: the participant makes ONE joint choice — first choosing the winning color (R or B), then choosing which urn (K or A) to bet on.",
+ statements:[
+  "<b>i)</b> Any bet on the known urn K implies the person is ambiguity averse.",
+  "<b>ii)</b> A bet on the ambiguous urn A cleanly identifies ambiguity seeking."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — Da die Person die Farbe frei wählt, kann ein K-Bet nicht durch einen skewed belief erklärt werden → Ambiguitätsaversion.\nii) FALSE — Ein A-Bet ist NICHT eindeutig: ein schiefer Glaube (\"viel Rot in A\") + Wahl von Rot aus A sieht aus wie ambiguity seeking, ist aber Belief-getrieben. Belief und Attitude sind hier nicht sauber trennbar."
+},
+{
+ topic:"ells",
+ stem:"Consider a variant where the participant is offered a choice between urn K and urn A, but the winning color is FIXED by the experimenter (no color choice).",
+ statements:[
+  "<b>i)</b> With a fixed winning color, attitudes toward ambiguity cannot be disentangled from beliefs about the urn composition.",
+  "<b>ii)</b> In such a fixed-color setting, trust in the experimenter (e.g. suspicion that the urn was stacked against you) can additionally affect the choice."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Ohne Farbwahl kann ein K-Bet an Ambiguitätsaversion ODER an einem Glauben liegen, die feste Farbe sei in A selten → nicht trennbar.\nii) TRUE — Folie: \"role of trust\" — bei fixierter Farbe kann Misstrauen (Experimentator hat A gegen mich manipuliert) das Verhalten mitprägen."
+},
+{
+ topic:"ells",
+ stem:"Ambiguity is sometimes implemented as an explicit second-order probability (compound lottery): the number of red balls is uniform on (0,100), and the winning probability is either 30% or 40% with equal chance.",
+ statements:[
+  "<b>i)</b> Implementation of this second-order-probability design is straightforward.",
+  "<b>ii)</b> A conceptual criticism is that this measures attitudes toward the reduction of compound lotteries rather than ambiguity, since the two are theoretically distinct concepts.",
+  "<b>iii)</b> Empirically, Ellsberg-type designs tend to elicit WEAKER ambiguity aversion than compound-lottery designs."
+ ],
+ options:["All three statements are correct.","Statements i and ii are correct, statement iii is false.","Statements ii and iii are correct, statement i is false.","Only statement i is correct."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — \"Implementation: trivial\" (Folie).\nii) TRUE — Ambiguität und zusammengesetzte Lotterien sind theoretisch verschieden; Kritiker sagen, man messe nur (Nicht-)Reduktion von Compound Lotteries.\niii) FALSE — Umgekehrt: Ellsberg-Designs rufen empirisch STÄRKERE Ambiguitätsaversion hervor."
+},
+{
+ topic:"nat",
+ stem:"An American investor faces natural-source bets. Choice 1: $100 if Dow up vs. $100 if Nikkei up. Choice 2: $100 if Dow down vs. $100 if Nikkei down. Suppose she bets on the Dow in BOTH choices.",
+ statements:[
+  "<b>i)</b> Betting on the Dow in both complementary choices indicates a source preference for the US market (interpretable as ambiguity aversion toward the more ambiguous Nikkei).",
+  "<b>ii)</b> A very skewed belief B(Dow up) ≫ B(Nikkei up) can by itself explain betting on the Dow in BOTH the 'up' and the 'down' choice."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — Zweimal auf den Dow zu wetten zeigt Source Preference; ist der Nikkei für die US-Investorin ambiger, nennt man das Ambiguitätsaversion.\nii) FALSE — Bei B(Dow up) ≫ B(Nikkei up) folgt zwingend B(Dow down) ≪ B(Nikkei down). Ein schiefer Glaube würde also in der 'down'-Wahl eher zum Nikkei führen — er kann NICHT beide Dow-Wetten erklären. Deshalb sind die komplementären Wetten informativ."
+},
+{
+ topic:"nat",
+ stem:"Two-step natural-source method. Step 1 elicits, for each index, the individual value x with B(index > x) = B(index < x) (the personal median). Step 2 offers bets on the index relative to its own x.",
+ statements:[
+  "<b>i)</b> By using each index relative to its personal median, beliefs are made symmetric, so complementary bets always identify source preference.",
+  "<b>ii)</b> Already a single strict preference in Step 2 identifies a source preference."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Indem man auf den persönlichen Median xD bzw. xN bedingt, werden die Glauben symmetrisch (50/50), und komplementäre Wetten identifizieren Source Preference immer.\nii) TRUE — Bei symmetrischen Beliefs identifiziert bereits eine strikte Präferenz die Source Preference (Folie: \"Strict preference already identifies source preference\"). Der Preis: Step 1 ist eine schwierige Frage (Median-Elizitierung)."
+},
+{
+ topic:"nat",
+ stem:"Alternative natural-source method (Step 1): elicit the investor's belief for each event, e.g. B(Dow up) = 0.5 and B(Nikkei up) = 0.75. Step 2: Dow-up bet vs. a risky lottery with p = 0.5; Nikkei-up bet vs. a risky lottery with p = 0.75. The investor chooses the Dow-up bet over the 0.5 lottery, and the 0.75 lottery over the Nikkei-up bet.",
+ statements:[
+  "<b>i)</b> This pattern indicates a source preference: preferring the uncertainty of the US market over matched risk, but matched risk over the uncertainty of the Japanese market.",
+  "<b>ii)</b> Whether such a source preference reflects ambiguity aversion or seeking cannot be signed without an interpretation — e.g. preferring uncertainty from the familiar market might reflect perceived competence."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Weil die Lotterie-Wahrscheinlichkeiten genau auf den erhobenen Belief kalibriert sind (0.5 bzw. 0.75), isoliert der Vergleich die Source Preference: US-Unsicherheit ≻ Risiko ≻ Japan-Unsicherheit.\nii) TRUE — Folie stellt genau diese Deutungsfrage: Abneigung gegen Börsen-Unsicherheit = wenig Finanzwissen? Präferenz dafür = kompetent? Das Vorzeichen \"aversion vs. seeking\" hängt von der Interpretation / Vertrautheit (competence) ab."
+},
+{
+ topic:"mp",
+ stem:"Matching-probability method for ambiguity. Option A: 10 balls red/black in unknown proportion; you predict the color and win $10 if correct. Option R: X red and (10−X) black balls; you win $10 if a red ball is drawn. A participant is indifferent between A and R at X ≈ 3.5 (i.e. between X=3 and X=4).",
+ statements:[
+  "<b>i)</b> A matching probability around 35% (below the ambiguity-neutral 50%) indicates ambiguity aversion.",
+  "<b>ii)</b> This classification depends on the participant's risk attitude."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — Die ambiguitäts-neutrale Person wäre bei 50% indifferent (X=5). Wer schon eine bekannte 35%-Chance der ambiguen Wette gleichstellt, wertet Ambiguität ab → Ambiguitätsaversion.\nii) FALSE — Folie explizit: \"Does not depend on risk attitude.\" Weil A und R denselben Preis- und Outcome-Rahmen ($10/$0) haben, kürzt sich die Risikoeinstellung heraus; nur die Ambiguitätshaltung bleibt."
+},
+{
+ topic:"mp",
+ stem:"Consider why one might use the matching-probability method (or a detailed choice list / WTP comparison of risk vs. ambiguity) instead of the simple two-choice Ellsberg task.",
+ statements:[
+  "<b>i)</b> The simple Ellsberg choices classify people only coarsely (averse / seeking / uncategorized) and give low precision.",
+  "<b>ii)</b> Methods previously developed for measuring risk attitudes (choice lists, WTP, matching probabilities) can be adapted to measure the degree of ambiguity attitude more precisely."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Einfache Wahlen liefern nur grobe Kategorien und geringe Präzision beim Unterscheiden zwischen Personen.\nii) TRUE — Folie: Jede Risiko-Methode (choice list, WTP, matching probabilities) lässt sich auf Ambiguität übertragen, um den GRAD der Haltung fein zu messen — entweder (i) Risiko- und Ambiguitätswert getrennt erheben und vergleichen, oder (ii) direkter Vergleich per matching probability."
+},
+{
+ topic:"exp",
+ stem:"Consider the description–experience gap (Hertwig & Erev 2009) for decisions involving small-probability events.",
+ statements:[
+  "<b>i)</b> In decisions from DESCRIPTION, people tend to show the typical prospect-theory pattern: overweighting small probabilities and underweighting large ones.",
+  "<b>ii)</b> In decisions from EXPERIENCE (sampling), behavior tends to reverse: small probabilities are UNDERweighted and large probabilities OVERweighted."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Beschreibung → typisches Prospect-Theory-Muster: kleine Wahrscheinlichkeiten überge-, große untergewichtet.\nii) TRUE — Erfahrung → entgegengesetztes Muster (kleine Wahrscheinlichkeiten untergewichtet), u.a. weil seltene Ereignisse in kleinen Stichproben oft gar nicht beobachtet werden. Das ist genau die \"description–experience gap\"."
+},
+{
+ topic:"exp",
+ stem:"Consider the decisions-from-experience (sampling) paradigm as described in the lecture.",
+ statements:[
+  "<b>i)</b> In the pure experience paradigm, probabilities are not given, so the situation involves ambiguity.",
+  "<b>ii)</b> In the experience paradigm the full set of possible outcomes is always known to the decision maker in advance.",
+  "<b>iii)</b> In some experience designs, the decision maker chooses for small payoffs after each draw — this is learning by choosing rather than free sampling."
+ ],
+ options:["All three statements are correct.","Statements i and iii are correct, statement ii is false.","Statements ii and iii are correct, statement i is false.","Only statement i is correct."],
+ answer:1,
+ explain:"Richtig: B.\ni) TRUE — Ohne gegebene Wahrscheinlichkeiten liegt Ambiguität vor.\nii) FALSE — Man kennt die möglichen Outcomes u.U. NICHT vollständig; unbeobachtete Preise können weiterhin möglich sein (auch wenn sie manchmal vorab genannt werden).\niii) TRUE — Manchmal Entscheidungen für kleine Auszahlungen nach jedem Draw: \"no sampling, but learning by choosing\" (Folie)."
+},
+{
+ topic:"fin",
+ stem:"Kaufmann, Weber & Haisley (2013) compare Description, Distribution graph, Experience, and a Risk tool (experience + distribution) for eliciting risk appetite in a fund-allocation task. Description is the excluded baseline category.",
+ statements:[
+  "<b>i)</b> Relative to pure description, the risk-simulation / risk-tool condition led participants to allocate MORE to the risky fund (more risk seeking).",
+  "<b>ii)</b> There is evidence that experience/risk-tool conditions make allocations MORE robust against preference reversals after observing a bad outcome (less reallocation after a loss)."
+ ],
+ options:["Both statements are correct.","Statement i is correct and statement ii is false.","Statement ii is correct and statement i is false.","Both statements are false."],
+ answer:0,
+ explain:"Richtig: A.\ni) TRUE — Tabelle 1: positive, signifikante Koeffizienten für Risk simulation ggü. der Baseline \"Description\" → mehr Allokation in den riskanten Fonds (\"more risk seeking with risk tool\").\nii) TRUE — Figure 1: nach einem Verlust (\"Luck\" < 0) reallozieren Description/Distribution stark, während Experience/Risk-simulation robuster sind (weniger Reaktion auf schlechte Outcomes) — Kaufmann et al. (2013)."
+}
+];
+
+let order = QUESTIONS.map((_,i)=>i);
+for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+let idx=0, correct=0, answered=false;
+const topicScore={};
+
+const card=document.getElementById('card');
+const prog=document.getElementById('prog');
+const counter=document.getElementById('counter');
+const scoreEl=document.getElementById('score');
+
+function render(){
+  answered=false;
+  const q=QUESTIONS[order[idx]];
+  const t=TOPICS[q.topic];
+  counter.textContent=`Frage ${idx+1} / ${QUESTIONS.length}`;
+  prog.style.width=`${(idx/QUESTIONS.length)*100}%`;
+  card.innerHTML=`
+    <span class="badge" style="background:${t.color}">${t.label}</span>
+    <div class="stem">${q.stem}</div>
+    ${q.statements.length?`<div class="statements">${q.statements.map(s=>`<div class="statement" style="border-left-color:${t.color}">${s}</div>`).join('')}</div>`:''}
+    <div class="options">
+      ${q.options.map((o,i)=>`<button class="opt" data-i="${i}"><span class="key">${'ABCD'[i]}</span><span>${o}</span></button>`).join('')}
+    </div>
+    <div class="explain" id="explain"><span class="verdict" id="verdict"></span>${q.explain}</div>
+    <div class="actions">
+      <button class="btn primary" id="next" disabled>${idx===QUESTIONS.length-1?'Ergebnis anzeigen':'Nächste Frage'}</button>
+    </div>`;
+  card.querySelectorAll('.opt').forEach(btn=>btn.addEventListener('click',()=>choose(+btn.dataset.i)));
+  document.getElementById('next').addEventListener('click',next);
+}
+
+function choose(i){
+  if(answered) return;
+  answered=true;
+  const q=QUESTIONS[order[idx]];
+  const opts=card.querySelectorAll('.opt');
+  opts.forEach(b=>b.disabled=true);
+  opts[q.answer].classList.add('correct');
+  const ok = i===q.answer;
+  if(!ok) opts[i].classList.add('wrong');
+  opts.forEach((b,k)=>{if(k!==q.answer&&k!==i)b.classList.add('dim');});
+  if(ok) correct++;
+  topicScore[q.topic]=topicScore[q.topic]||{c:0,n:0};
+  topicScore[q.topic].n++; if(ok)topicScore[q.topic].c++;
+  scoreEl.textContent=`${correct} richtig`;
+  const ex=document.getElementById('explain');
+  document.getElementById('verdict').textContent = ok ? '✓ Richtig' : '✗ Leider falsch';
+  document.getElementById('verdict').style.color = ok ? 'var(--correct)' : 'var(--wrong)';
+  ex.classList.add('show');
+  document.getElementById('next').disabled=false;
+}
+
+function next(){
+  idx++;
+  if(idx<QUESTIONS.length){render();}
+  else{finish();}
+}
+
+function finish(){
+  prog.style.width='100%';
+  counter.textContent='Fertig';
+  const pct=Math.round(correct/QUESTIONS.length*100);
+  let msg = pct>=90?'Klausurreif. Sehr stark!':pct>=70?'Solide — die Lücken sind klar erkennbar.':pct>=50?'Grundlagen sitzen, Details nochmal wiederholen.':'Nochmal den Foliensatz durchgehen und erneut versuchen.';
+  card.innerHTML=`
+    <div class="result">
+      <div class="score">${correct}/${QUESTIONS.length}</div>
+      <p>${pct}% richtig · ${msg}</p>
+      <div class="topicstats">
+        ${Object.entries(topicScore).map(([k,v])=>`<div class="row"><span style="color:${TOPICS[k].color};font-weight:600">${TOPICS[k].label}</span><span>${v.c}/${v.n}</span></div>`).join('')}
+      </div>
+      <div class="actions" style="max-width:420px;margin:24px auto 0">
+        <button class="btn primary" id="restart">Nochmal (neu gemischt)</button>
+      </div>
+    </div>`;
+  document.getElementById('restart').addEventListener('click',()=>{
+    for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+    idx=0;correct=0;for(const k in topicScore)delete topicScore[k];
+    scoreEl.textContent='0 richtig';render();
+  });
+}
+
+render();
+</script>
+</body>
+</html>
